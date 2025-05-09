@@ -11,6 +11,8 @@ export interface Message {
   isThreat?: boolean;
   threatScore?: number;
   isScanning?: boolean;
+  threadId?: string;
+  status?: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
 export interface Contact {
@@ -20,6 +22,9 @@ export interface Contact {
   lastSeen?: Date;
   unreadCount?: number;
   isAllowed?: boolean;
+  profilePicUrl?: string;
+  isGroup?: boolean;
+  groupParticipants?: number;
 }
 
 export interface WhatsAppSession {
@@ -27,6 +32,8 @@ export interface WhatsAppSession {
   qrCodeUrl?: string;
   clientId?: string;
   lastActive?: Date;
+  phoneNumber?: string;
+  status?: 'connecting' | 'authenticated' | 'disconnected';
 }
 
 export interface ScanStatus {
@@ -37,4 +44,11 @@ export interface ScanStatus {
 export interface ConnectionCredentials {
   clientId?: string;
   sessionData?: string;
+}
+
+export interface MessageAttachment {
+  type: 'image' | 'video' | 'audio' | 'document';
+  url?: string;
+  filename?: string;
+  mimeType?: string;
 }
