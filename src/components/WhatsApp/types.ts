@@ -10,7 +10,7 @@ export interface Message {
   scanned?: boolean;
   isThreat?: boolean;
   threatScore?: number;
-  isScanning?: boolean; // Added to fix the TypeScript error
+  isScanning?: boolean;
 }
 
 export interface Contact {
@@ -19,4 +19,22 @@ export interface Contact {
   lastMessage?: string;
   lastSeen?: Date;
   unreadCount?: number;
+  isAllowed?: boolean;
+}
+
+export interface WhatsAppSession {
+  connected: boolean;
+  qrCodeUrl?: string;
+  clientId?: string;
+  lastActive?: Date;
+}
+
+export interface ScanStatus {
+  inProgress: boolean;
+  messageId?: string;
+}
+
+export interface ConnectionCredentials {
+  clientId?: string;
+  sessionData?: string;
 }
