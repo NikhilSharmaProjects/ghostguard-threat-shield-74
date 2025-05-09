@@ -1,7 +1,7 @@
 
-import { Threat, getThreatLevel } from '@/lib/models';
-import { analyzeWithAI } from '@/lib/ai-service';
+import { Threat } from '@/lib/models';
 import { v4 as uuidv4 } from 'uuid';
+import { extractUrls, scanContentForThreats } from '@/lib/unified-scan-service';
 
 // In a real application, this would use the WhatsApp API
 // For demo purposes, we're simulating the connection with a mock
@@ -32,20 +32,14 @@ let currentStatus: WhatsAppConnectionStatus = {
 let cachedMessages: WhatsAppMessage[] = [];
 let scannedUrls: Record<string, boolean> = {};
 
-// Extract URLs from text
-export function extractUrls(text: string): string[] {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
-}
-
 // Connect to WhatsApp
 export async function connectWhatsApp(phoneNumber: string): Promise<WhatsAppConnectionStatus> {
   try {
     // In a real implementation, this would initiate the actual WhatsApp Web.js connection
     // For demo purposes, we'll simulate it
     
-    // Generate a fake QR code URL for demonstration
-    const qrCodeUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAACkCAYAAAAZtYVBAAAAAklEQVR4AewaftIAAAX3SURBVO3BQY4cy5LAQDKg7n/lOYtZ96MAySz1YxgR/7HWJcNalw1rXTasdcmw1mXDWpcNa102rHXJsNZlw1qXDGtdNqx12bDWJcNalw1rXTKsdcmHl1T+UsWJyknFicpJxYnKScWJyknFicpJxYnKScVfqnhjeOuSYa3LhrUuG9a67MPHVbxJ5U0VJyonFScqJxVvUnlTxSdU3jSsdcmw1mXDWpcNa1324ZdUTipOVN6k8iaVk4oTlZOKE5WTihOVNwxrXTasdcmw1mXDWpd9+LKKv6RyUvGXKk5UTlROKr5pWOuSYa3LhrUuG9a67MOXqfylik+o+KRhrUuGtS4b1rpsWOuyD19W8ZcqTlROKk5UTipOVE4qTlROKk5U3lTxTcNalwxrXTasdcmw1mUfPk7lm1ROKk5UTipOVE4qTlROVE4qTlROKt5U8U3DWpcMa102rHXJsNZlH16q+KaKE5WTihOVk4o3VZyonFScqLxJ5aTiLw1rXTKsdcmw1mXDWpf8xy+onFScVJyovKniROWk4kTlb6o4UTmpOKk4UTmpOFE5qThROak4UTmp+KZhrUuGtS4b1rpsWOuyDy+p/KWKk4oTlZOKk4oTlZOKE5U3qZxUnFScqJxUvKnipOJNw1qXDGtdNqx12bDWZR8+ruJNFScVJxVvqjhROal4k8pJxUnFicpJxYnKScWbhrUuGda6bFjrsmGtyz78kspJxZsqTlROKn5J5aTiROVE5aTiROWk4kTlpOJNw1qXDGtdNqx12bDWZR++rOJE5aTihMpJxZtUTlROKk5U3qRyUvFJw1qXDGtdNqx12bDWZR++TOWk4qTik1ROKk4qTlROVE4qTipOVE5UTipOVE4qPmlY65JhrcuGtS4b1rrsw5dVnFS8SeWk4qTiTRUnKm9SeVPFicpJxUnFNw1rXTKsdcmw1mXDWpd9eEnlpOKk4kTlpOJE5UTlpOJE5aTipeKk4o9UnKicVJxUvDWsdcmw1mXDWpcNa132HxVvUnmTyknFicpJxYnKScVJxUnFicqJyknFScWJyknFNw1rXTKsdcmw1mXDWpd9eKniTRUnKicVJyonFW9SOak4UTmpOFE5qThROVF5U8WbhrUuGda6bFjrsmGtyz68pPKXKk5UTipOVE5UTlROKk5U3qRyUvFJFScVJxXfNKx1ybDWZcNalw1rXfbh4yrepPImlTdVnKicqJxUnKicVLxJ5ZOGtS4Z1rpsWOuyYa3LPvySyknFicpJxYnKScVJxYnKm1ROKk5UPqnipOJE5U3DWpcMa102rHXZsNZlH76s4ptU3lTxJpWTijetvGlY65JhrUuGtS4b1rrswz+m8qbik1ROKk5UTlROKk5UTlROKv5Jw1qXDGtdNqx12bDWZR++rOKbKt6kclJxUvFJKicVb1I5qThROan4pGGtS4a1LhvWumxY67IPL6n8ksqbKt6kclLxJpU3qZxUnFScqJxUfNKw1iXDWpcNa102rHXZf/yCyknFicpJxYnKScWJyknFJw1rXTKsdcmw1mXDWpd9+LiKE5WTihOVk4qTihMqlYoTlZOKE5U3VZxUnFR807DWJcNalw1rXTasdZnKf/yQyicNa302rHXJsNZlw1qXDWtdNqx12bDWJcNalw1rXTasdcmw1mXDWpcMa102rHXJsNZlw1qXDWtd8h8vqZxUnFScVPylik9SOak4qThROak4qXhTxScNa10yrHXZsNZlw1qXfXhJ5S9VnFS8SeWTVE4qTlROVE4qTlROVN5UcVJxUnGiclLxpmGtS4a1LhvWumxY67IPH1fxJpWTihOVk4o3VZyonKicVJyonFScVLxJ5aTipOKbhrUuGda6bFjrsmGtyz78kspJxYnKScWJyknFicpJxYnKScVJxUnFmypOKk4qTlROKt40rHXJsNZlw1qXDWtd9uHLKr6p4kTlpOJE5ZMqTlROKk5U3lRxonJScVLxTcNalwxrXTasdcmw1mUffpnKicqJyknFJ6mcVHxSxZtUTipOVE4q3jSsdcmw1mXDWpcNa1324ctU/lLFicpJxUnFicpJxZtUTipOVE5UTlROKt40rHXJsNZlw1qXDWtd9h8vqZxUnFScVPylik+qOKn4SxUnFScVnzSsdcmw1mXDWpcNa132H2tdMqx12bDWJcNalw1rXTasdcmw1mXDWpcMa102rHXJsNZlw1qXDWtdMqx12bDWJcNal/wfS6IN8AvTLYcAAAAASUVORK5CYII=';
+    // Generate a real QR code URL (this will be replaced by actual WhatsApp API in production)
+    const qrCodeUrl = await generateWhatsAppQR();
     
     // Update the current status
     currentStatus = {
@@ -62,6 +56,14 @@ export async function connectWhatsApp(phoneNumber: string): Promise<WhatsAppConn
     };
     return currentStatus;
   }
+}
+
+// Generates a QR code for WhatsApp Web connection
+// In a real implementation, this would use the WhatsApp Business API
+async function generateWhatsAppQR(): Promise<string> {
+  // This is a placeholder. In a real application, this would call the WhatsApp API
+  // For now, we're using a data URI for a sample QR code
+  return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAACkCAYAAAAZtYVBAAAAAklEQVR4AewaftIAAAX3SURBVO3BQY4cy5LAQDKg7n/lOYtZ96MAySz1YxgR/7HWJcNalw1rXTasdcmw1mXDWpcNa102rHXJsNZlw1qXDGtdNqx12bDWJcNalw1rXTKsdcmHl1T+UsWJyknFicpJxYnKScVJxYnKScVfqnhjeOuSYa3LhrUuG9a67MPHVbxJ5U0VJyonFScqJxVvUnlTxSdU3jSsdcmw1mXDWpcNa1324ZdUTipOVN6k8iaVk4oTlZOKE5WTihOVNwxrXTasdcmw1mXDWpd9+LKKv6RyUvGXKk5UTlROKr5pWOuSYa3LhrUuG9a67MOXqfylik+o+KRhrUuGtS4b1rpsWOuyD19W8ZcqTlROKk5UTipOVE5UThROVE4qTlROKt5U8U3DWpcMa102rHXJsNZlH45U3lTxJpWTipeGtd41rHXJsNZlw1qXffg4lW+qOKk4UTmpOFE5qfikijepmA1rXTKsdcmw1mXDWpcMa1324aWKb6o4UTmpOFE5qXhTxYnKScVJxUnFScWbKr5pWOuSYa3LhrUuG9a67MPHqZxUfFPFicpJxYnKScVJxUnFScVJxYnKScVJxYnKNw1rXTKsdcmw1mXDWpf8xy+onFScVJyovKniROWk4kTlb6o4UTmpOKk4UTmpOFE5qThROak4UTmp+KZhrUuGtS4b1rpsWOuyDy+p/KWKk4oTlZOKk4oTlZOKE5U3qZxUnFScqJxUvKnipOJNw1qXDGtdNqx12bDWZR8+ruJNFScVJxVvqjhROal4k8pJxUnFicpJxYnKScWbhrUuGda6bFjrsmGtyz78kspJxZsqTlROKn5J5aTiROVE5aTiROWk4kTlpOJNw1qXDGtdNqx12bDWZR++rOJE5aTihMpJxZtUTipOKk5U3qRyUvFJw1qXDGtdNqx12bDWZR++TOWk4qTik1ROKk4qTlROVE4qTipOVE5UTipOVE4qPmlY65JhrcuGtS4b1rrsw5dVnFS8SeWk4qTiTRUnKm9SeVPFicpJxUnFNw1rXTKsdcmw1mXDWpd9eEnlpOKk4kTlpOJE5UTlpOJE5aTipeKk4o9UnKicVJxUvDWsdcmw1mXDWpcNa132HxVvUnmTyknFicpJxYnKScVJxUnFicqJyknFScWJyknFNw1rXTKsdcmw1mXDWpd9eKniTRUnKicVJyonFW9SOak4UTmpOFE5qThROVF5U8WbhrUuGda6bFjrsmGtyz68pPKXKk5UTipOVE5UTlROKk5U3qRyUvFJFScVJxXfNKx1ybDWZcNalw1rXfbh4yrepPImlTdVnKicqJxUnKicVLxJ5ZOGtS4Z1rpsWOuyYa3LPvySyknFicpJxYnKScVJxYnKm1ROKk5UPqnipOJE5U3DWpcMa102rHXZsNZlH76s4ptU3lTxJpWTijetvGlY65JhrUuGtS4b1rrswz+m8qbik1ROKk5UTlROKk5UTlROKv5Jw1qXDGtdNqx12bDWZR++rOKbKt6kclJxUvFJKicVb1I5qThROan4pGGtS4a1LhvWumxY67IPL6n8ksqbKt6kclLxJpU3qZxUnFScqJxUfNKw1iXDWpcNa102rHXZf/yCyknFicpJxYnKScWJyknFJw1rXTKsdcmw1mXDWpd9+LiKE5WTihOVk4qTihMqlYoTlZOKE5U3VZxUnFR807DWJcNalw1rXTasdZnKf/yQyicNa302rHXJsNZlw1qXDWtdNqx12bDWJcNalw1rXTasdcmw1mXDWpcMa102rHXJsNZlw1qXDWtd8h8vqZxUnFScVPylik9SOak4qThROak4qXhTxScNa10yrHXZsNZlw1qXfXhJ5S9VnFS8SeWTVE4qTlROVE4qTlROVN5UcVJxUnGiclLxpmGtS4a1LhvWumxY67IPH1fxJpWTihOVk4o3VZyonKicVJyonFScVLxJ5aTipOKbhrUuGda6bFjrsmGtyz78kspJxYnKScWJyknFicpJxYnKScVJxUnFmypOKk4qTlROKt40rHXJsNZlw1qXDWtd9uHLKr6p4kTlpOJE5ZMqTlROKk5U3lRxonJScVLxTcNalwxrXTasdcmw1mUffpnKicqJyknFJ6mcVHxSxZtUTipOVE4q3jSsdcmw1mXDWpcNa1324ctU/lLFicpJxUnFicpJxZtUTipOVE5UTlROKt40rHXJsNZlw1qXDWtd9h8vqZxUnFScVPylik+qOKn4SxUnFScVnzSsdcmw1mXDWpcNa132H2tdMqx12bDWJcNalw1rXTasdcmw1mXDWpcMa102rHXJsNZlw1qXDWtdMqx12bDWJcNal/wfS6IN8AvTLYcAAAAASUVORK5CYII=';
 }
 
 // Simulate WhatsApp authentication completion (after QR code scan)
@@ -149,50 +151,31 @@ export async function scanMessage(message: WhatsAppMessage): Promise<Threat | nu
     // Mark this URL as scanned to avoid duplicates
     scannedUrls[message.url] = true;
     
-    // Use the existing AI service to analyze the URL
-    const analysis = await analyzeWithAI({ url: message.url });
+    // Use the unified scan service
+    const threat = await scanContentForThreats(message.text, 'whatsapp', message.id);
     
-    // Create a threat entry if the confidence score is high enough
-    if (analysis.confidenceScore > 30) {
-      const threatId = uuidv4();
-      const now = new Date();
-      
-      // Determine the category based on the analysis
-      let category: 'phishing' | 'malware' | 'scam' | 'suspicious' | 'safe' = 'suspicious';
-      if (analysis.confidenceScore > 80) {
-        category = analysis.threatAnalysis.toLowerCase().includes('phish') ? 'phishing' : 'malware';
-      } else if (analysis.confidenceScore > 60) {
-        category = 'scam';
-      } else if (analysis.confidenceScore < 30) {
-        category = 'safe';
-      }
-      
-      // Create a new threat entry
-      const threat: Threat = {
-        id: threatId,
-        url: message.url,
-        timestamp: now.toISOString(),
-        score: analysis.confidenceScore,
-        category,
-        source: 'whatsapp',
-        details: analysis.threatAnalysis,
-        status: 'active'
-      };
-      
-      // Update the message with the threat ID
+    // Update the message with the threat ID if a threat was found
+    if (threat) {
       const messageIndex = cachedMessages.findIndex(m => m.id === message.id);
       if (messageIndex !== -1) {
         cachedMessages[messageIndex] = {
           ...cachedMessages[messageIndex],
           scanned: true,
-          threatId
+          threatId: threat.id
         };
       }
-      
-      return threat;
+    } else {
+      // Mark as scanned even if no threat was found
+      const messageIndex = cachedMessages.findIndex(m => m.id === message.id);
+      if (messageIndex !== -1) {
+        cachedMessages[messageIndex] = {
+          ...cachedMessages[messageIndex],
+          scanned: true
+        };
+      }
     }
     
-    return null;
+    return threat;
   } catch (error) {
     console.error('Error scanning message:', error);
     return null;

@@ -1,7 +1,7 @@
 
-import { Threat, getThreatLevel } from '@/lib/models';
-import { analyzeWithAI } from '@/lib/ai-service';
+import { Threat } from '@/lib/models';
 import { v4 as uuidv4 } from 'uuid';
+import { extractUrls, scanContentForThreats } from '@/lib/unified-scan-service';
 
 export interface EmailConnectionStatus {
   connected: boolean;
@@ -31,12 +31,6 @@ let currentStatus: EmailConnectionStatus = {
 
 let cachedEmails: EmailMessage[] = [];
 let scannedUrls: Record<string, boolean> = {};
-
-// Extract URLs from text
-export function extractUrls(text: string): string[] {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.match(urlRegex) || [];
-}
 
 // Connect to email
 export async function connectEmail(email: string, password: string): Promise<EmailConnectionStatus> {
@@ -161,50 +155,22 @@ export async function scanUrl(url: string, emailId: string): Promise<Threat | nu
     // Mark this URL as scanned
     scannedUrls[url] = true;
     
-    // Use the existing AI service to analyze the URL
-    const analysis = await analyzeWithAI({ url });
+    // Use the unified scan service to check this URL
+    const threat = await scanContentForThreats(url, 'email', emailId);
     
-    // Create a threat entry if the confidence score is high enough
-    if (analysis.confidenceScore > 30) {
-      const threatId = uuidv4();
-      const now = new Date();
-      
-      // Determine the category based on the analysis
-      let category: 'phishing' | 'malware' | 'scam' | 'suspicious' | 'safe' = 'suspicious';
-      if (analysis.confidenceScore > 80) {
-        category = analysis.threatAnalysis.toLowerCase().includes('phish') ? 'phishing' : 'malware';
-      } else if (analysis.confidenceScore > 60) {
-        category = 'scam';
-      } else if (analysis.confidenceScore < 30) {
-        category = 'safe';
-      }
-      
-      // Create a new threat entry
-      const threat: Threat = {
-        id: threatId,
-        url,
-        timestamp: now.toISOString(),
-        score: analysis.confidenceScore,
-        category,
-        source: 'email',
-        details: analysis.threatAnalysis,
-        status: 'active'
-      };
-      
-      // Update the email with the threat ID
+    // Update the email with the threat ID if found
+    if (threat) {
       const emailIndex = cachedEmails.findIndex(e => e.id === emailId);
       if (emailIndex !== -1) {
         cachedEmails[emailIndex] = {
           ...cachedEmails[emailIndex],
           scanned: true,
-          threatIds: [...cachedEmails[emailIndex].threatIds, threatId]
+          threatIds: [...cachedEmails[emailIndex].threatIds, threat.id]
         };
       }
-      
-      return threat;
     }
     
-    return null;
+    return threat;
   } catch (error) {
     console.error('Error scanning URL:', error);
     return null;

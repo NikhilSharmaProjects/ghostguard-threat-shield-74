@@ -11,6 +11,7 @@ import ScanningLoader from '@/components/ScanningLoader';
 import ThreatBadge from '@/components/ThreatBadge';
 import { getThreatLevel } from '@/lib/models';
 import { connectWhatsApp, completeWhatsAppAuth, getConnectionStatus, getMessages, WhatsAppMessage, loadMessages, scanAllMessages, disconnectWhatsApp } from '@/lib/whatsapp-service';
+import { Link } from 'react-router-dom';
 
 const WhatsAppIntegration = () => {
   const { toast } = useToast();
@@ -169,6 +170,14 @@ const WhatsAppIntegration = () => {
         <p className="text-muted-foreground">
           Connect and scan your WhatsApp messages for malicious links
         </p>
+        <div className="mt-4">
+          <Button asChild className="bg-ghost-400 hover:bg-ghost-500">
+            <Link to="/whatsapp-realtime">
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Try Real-Time WhatsApp Monitor
+            </Link>
+          </Button>
+        </div>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
