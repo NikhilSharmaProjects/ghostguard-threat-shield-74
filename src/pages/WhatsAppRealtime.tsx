@@ -1,40 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, ShieldCheck, ShieldAlert, Loader2, QrCode, Unlink, RefreshCw, Send } from 'lucide-react';
-import ScanningLoader from '@/components/ScanningLoader';
-import ThreatBadge from '@/components/ThreatBadge';
-import { getThreatLevel } from '@/lib/models';
-import { Textarea } from '@/components/ui/textarea';
-
-// For a real implementation, we would need to integrate WhatsApp Web.js
-// This page provides the UI structure ready for real backend integration
-
-interface Message {
-  id: string;
-  sender: string;
-  text: string;
-  timestamp: Date;
-  isMine: boolean;
-  containsUrl: boolean;
-  urls?: string[];
-  scanned?: boolean;
-  isThreat?: boolean;
-  threatScore?: number;
-}
-
-interface Contact {
-  id: string;
-  name: string;
-  lastMessage?: string;
-  lastSeen?: Date;
-  unreadCount?: number; 
-}
+import { Unlink } from 'lucide-react';
+import { Message, Contact } from '@/components/WhatsApp/types';
+import ConnectionScreen from '@/components/WhatsApp/ConnectionScreen';
+import ContactsList from '@/components/WhatsApp/ContactsList';
+import ChatWindow from '@/components/WhatsApp/ChatWindow';
+import SettingsTab from '@/components/WhatsApp/SettingsTab';
 
 const WhatsAppRealtime = () => {
   const { toast } = useToast();
@@ -297,7 +270,7 @@ const WhatsAppRealtime = () => {
     if (!message.containsUrl) return;
     
     // Update message to show scanning
-    const updatingMsg = { ...message, scanning: true };
+    const updatingMsg = { ...message, isScanning: true }; // Changed from scanning to isScanning
     setMessages(messages.map(m => m.id === message.id ? updatingMsg : m));
     
     // Simulate scanning process
@@ -312,7 +285,7 @@ const WhatsAppRealtime = () => {
         scanned: true, 
         isThreat, 
         threatScore,
-        scanning: false
+        isScanning: false // Changed from scanning to isScanning
       };
       
       setMessages(messages.map(m => m.id === message.id ? updatedMsg : m));
@@ -327,98 +300,21 @@ const WhatsAppRealtime = () => {
     }, 2000);
   };
   
+  // If not connected, show connection screen
   if (!isConnected) {
     return (
-      <div className="container px-4 md:px-6 py-6 md:py-10 space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">WhatsApp Realtime Monitoring</h1>
-          <p className="text-muted-foreground">
-            Connect your WhatsApp to monitor messages in real-time and scan for threats
-          </p>
-        </div>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Connect WhatsApp</CardTitle>
-            <CardDescription>
-              Link your WhatsApp to scan messages for security threats in real-time
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {showQr && qrCodeUrl ? (
-              <div className="flex flex-col items-center space-y-4">
-                <div className="border p-4 rounded-md bg-white">
-                  <img 
-                    src={qrCodeUrl} 
-                    alt="WhatsApp QR Code" 
-                    className="w-64 h-64 object-contain"
-                  />
-                </div>
-                <p className="text-center text-sm text-muted-foreground">
-                  1. Open WhatsApp on your phone<br/>
-                  2. Go to Settings &gt; Linked Devices<br/>
-                  3. Tap "Link a Device" and scan this QR code
-                </p>
-                <div className="flex space-x-2">
-                  <Button onClick={() => setShowQr(false)} variant="outline">
-                    Cancel
-                  </Button>
-                  <Button onClick={handleQrScanComplete} className="bg-ghost-400 hover:bg-ghost-500">
-                    I've Scanned It
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="rounded-md bg-muted p-4">
-                  <div className="flex">
-                    <ShieldAlert className="h-5 w-5 text-amber-500 mt-0.5 mr-3" />
-                    <div>
-                      <h3 className="font-medium">Real-time Protection</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Connect your WhatsApp to automatically scan all incoming messages with URLs.
-                        GhostGuard will protect you from phishing and malware links in real-time.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <Alert className="mt-4">
-                  <AlertTitle>Privacy Notice</AlertTitle>
-                  <AlertDescription>
-                    GhostGuard only scans URLs in your messages and never stores your message content.
-                    All scanning is done securely on your device.
-                  </AlertDescription>
-                </Alert>
-              </>
-            )}
-          </CardContent>
-          <CardFooter>
-            {!showQr && (
-              <Button 
-                onClick={handleConnect} 
-                disabled={isConnecting}
-                className="bg-ghost-400 hover:bg-ghost-500"
-              >
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <QrCode className="mr-2 h-4 w-4" />
-                    Connect WhatsApp
-                  </>
-                )}
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
-      </div>
+      <ConnectionScreen 
+        isConnecting={isConnecting}
+        showQr={showQr}
+        qrCodeUrl={qrCodeUrl}
+        handleConnect={handleConnect}
+        handleQrScanComplete={handleQrScanComplete}
+        setShowQr={setShowQr}
+      />
     );
   }
   
+  // Main connected interface
   return (
     <div className="container px-4 md:px-6 py-6 md:py-10 space-y-8">
       <div className="flex justify-between items-center">
@@ -442,198 +338,33 @@ const WhatsAppRealtime = () => {
         
         <TabsContent value="messages" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Contacts List */}
-            <Card className="md:col-span-1">
-              <CardHeader className="p-4">
-                <CardTitle className="text-lg">Contacts</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="space-y-1">
-                  {contacts.map(contact => (
-                    <div 
-                      key={contact.id}
-                      className={`flex items-center justify-between px-4 py-2 cursor-pointer hover:bg-muted/50 ${
-                        selectedContact?.id === contact.id ? 'bg-ghost-400/10 border-l-4 border-ghost-400' : ''
-                      }`}
-                      onClick={() => setSelectedContact(contact)}
-                    >
-                      <div>
-                        <div className="font-medium">{contact.name}</div>
-                        <div className="text-xs text-muted-foreground truncate max-w-40">
-                          {contact.lastMessage}
-                        </div>
-                      </div>
-                      {contact.unreadCount ? (
-                        <div className="bg-ghost-400 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                          {contact.unreadCount}
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <ContactsList 
+              contacts={contacts}
+              selectedContact={selectedContact}
+              setSelectedContact={setSelectedContact}
+              allowedContacts={allowedContacts}
+            />
             
-            {/* Chat Window */}
-            <Card className="md:col-span-3 flex flex-col h-[70vh]">
-              {selectedContact ? (
-                <>
-                  <CardHeader className="p-4 border-b">
-                    <CardTitle className="text-lg flex items-center">
-                      <span>{selectedContact.name}</span>
-                      {allowedContacts.includes(selectedContact.name) && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-100">
-                          Protected
-                        </span>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  
-                  <CardContent className="p-4 flex-grow overflow-y-auto space-y-4">
-                    {messages.map(message => (
-                      <div 
-                        key={message.id}
-                        className={`flex ${message.isMine ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div 
-                          className={`max-w-[80%] p-3 rounded-lg ${
-                            message.isMine 
-                              ? 'bg-ghost-400/90 text-white' 
-                              : 'bg-secondary'
-                          }`}
-                        >
-                          <div className="text-sm">{message.text}</div>
-                          <div className="text-xs mt-1 opacity-70">
-                            {message.timestamp.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-                          </div>
-                          
-                          {message.containsUrl && (
-                            <div className="mt-2 pt-1 border-t border-white/20 text-xs flex items-center gap-2">
-                              {message.scanning ? (
-                                <div className="flex items-center gap-1 text-xs">
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  <span>Scanning...</span>
-                                </div>
-                              ) : message.scanned ? (
-                                message.isThreat ? (
-                                  <div className="flex items-center justify-between w-full">
-                                    <div className="flex items-center gap-1 text-red-200">
-                                      <ShieldAlert className="h-3 w-3" />
-                                      <span>Threat detected</span>
-                                    </div>
-                                    <ThreatBadge score={message.threatScore || 0} size="sm" />
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-1 text-green-200">
-                                    <ShieldCheck className="h-3 w-3" />
-                                    <span>URL verified safe</span>
-                                  </div>
-                                )
-                              ) : !message.isMine ? (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  className="text-xs h-6 text-white/90 hover:text-white hover:bg-white/20"
-                                  onClick={() => handleScanMessage(message)}
-                                >
-                                  <ShieldCheck className="mr-1 h-3 w-3" />
-                                  Scan URL
-                                </Button>
-                              ) : null}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                  
-                  <CardFooter className="p-4 border-t">
-                    <div className="flex w-full gap-2">
-                      <Textarea
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-1 min-h-10 resize-none"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
-                          }
-                        }}
-                      />
-                      <Button 
-                        onClick={handleSendMessage} 
-                        size="icon"
-                        className="bg-ghost-400 hover:bg-ghost-500"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <MessageSquare className="h-12 w-12 mx-auto opacity-20 mb-4" />
-                    <p className="text-muted-foreground">
-                      Select a contact to start chatting
-                    </p>
-                  </div>
-                </div>
-              )}
-            </Card>
+            <ChatWindow 
+              selectedContact={selectedContact}
+              messages={messages}
+              handleScanMessage={handleScanMessage}
+              handleSendMessage={handleSendMessage}
+              newMessage={newMessage}
+              setNewMessage={setNewMessage}
+              allowedContacts={allowedContacts}
+            />
           </div>
         </TabsContent>
         
         <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Protection Settings</CardTitle>
-              <CardDescription>
-                Configure which contacts are protected by GhostGuard's real-time scanning
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-lg font-medium">Allowed Contacts</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  GhostGuard will automatically scan messages from these contacts
-                </p>
-                
-                <div className="flex gap-2 mb-4">
-                  <Input 
-                    value={newAllowedContact}
-                    onChange={(e) => setNewAllowedContact(e.target.value)}
-                    placeholder="Add contact name"
-                  />
-                  <Button onClick={handleAddAllowedContact}>
-                    Add
-                  </Button>
-                </div>
-                
-                <div className="space-y-2">
-                  {allowedContacts.map(contact => (
-                    <div key={contact} className="flex justify-between items-center bg-secondary p-2 rounded-md">
-                      <span>{contact}</span>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => handleRemoveAllowedContact(contact)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  
-                  {allowedContacts.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      No allowed contacts yet. Add contacts to enable protection.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <SettingsTab 
+            allowedContacts={allowedContacts}
+            newAllowedContact={newAllowedContact}
+            setNewAllowedContact={setNewAllowedContact}
+            handleAddAllowedContact={handleAddAllowedContact}
+            handleRemoveAllowedContact={handleRemoveAllowedContact}
+          />
         </TabsContent>
       </Tabs>
     </div>
