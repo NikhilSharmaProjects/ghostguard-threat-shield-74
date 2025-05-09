@@ -1,21 +1,28 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Search, AlertTriangle, Shield, ShieldAlert, ExternalLink } from 'lucide-react';
+import { Search, AlertTriangle, Shield, ShieldAlert, ExternalLink, Brain } from 'lucide-react';
 import ThreatScoreGauge from '@/components/ThreatScoreGauge';
 import ThreatBadge from '@/components/ThreatBadge';
 import { getThreatLevel } from '@/lib/models';
 import ShieldAnimation from '@/components/ShieldAnimation';
+import AIInsightsPanel from '@/components/AIInsightsPanel';
+import { analyzeWithAI } from '@/lib/ai-service';
 
 const Scan = () => {
   const { toast } = useToast();
   const [url, setUrl] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanComplete, setScanComplete] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiInsights, setAiInsights] = useState<{
+    threatAnalysis: string;
+    securityRecommendations: string[];
+    confidenceScore: number;
+  } | null>(null);
   const [scanResult, setScanResult] = useState<{
     url: string;
     score: number;
@@ -90,7 +97,7 @@ const Scan = () => {
     };
   };
 
-  const handleScan = () => {
+  const handleScan = async () => {
     if (!url.trim()) {
       toast({
         title: "Error",
@@ -112,6 +119,11 @@ const Scan = () => {
     setIsScanning(true);
     setScanComplete(false);
     setScanResult(null);
+    setAiInsights(null);
+    
+    // Start AI analysis in parallel with our traditional scan
+    setAiLoading(true);
+    analyzeWithAI({ url }).catch(console.error);
 
     // Simulate API call delay
     setTimeout(() => {
@@ -141,7 +153,32 @@ const Scan = () => {
           description: "No threats detected in this URL",
         });
       }
+      
+      // Now get AI analysis
+      analyzeWithAI({ url })
+        .then(aiResult => {
+          setAiInsights(aiResult);
+          setAiLoading(false);
+        })
+        .catch(error => {
+          console.error("AI analysis failed:", error);
+          setAiLoading(false);
+          toast({
+            title: "AI Analysis Failed",
+            description: "Could not get advanced AI insights for this URL",
+            variant: "destructive",
+          });
+        });
     }, 2500);
+  };
+  
+  const handleAiFeedback = (helpful: boolean) => {
+    toast({
+      title: helpful ? "Thanks for your feedback!" : "We'll improve our AI",
+      description: helpful 
+        ? "Your feedback helps train our AI to be more accurate." 
+        : "We've recorded your feedback to improve our analysis.",
+    });
   };
   
   const threatLevel = scanResult ? getThreatLevel(scanResult.score) : null;
@@ -251,90 +288,101 @@ const Scan = () => {
       )}
       
       {scanComplete && scanResult && (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-              <div>
-                <CardTitle>Scan Results</CardTitle>
-                <CardDescription>
-                  Analysis completed {new Date(scanResult.timestamp).toLocaleString()}
-                </CardDescription>
-              </div>
-              <ThreatBadge score={scanResult.score} size="lg" />
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Alert based on threat level */}
-            <Alert variant={alertStyles.variant as any}>
-              <div className="flex items-center gap-2">
-                {alertStyles.icon}
-                <AlertTitle>{alertStyles.title}</AlertTitle>
-              </div>
-              <AlertDescription>{alertStyles.description}</AlertDescription>
-            </Alert>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* URL Information */}
-              <div className="md:col-span-2 space-y-4">
+        <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div>
-                  <h3 className="text-lg font-medium">Scanned URL</h3>
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <div className="truncate font-mono text-sm bg-secondary px-2 py-1 rounded">
-                      {scanResult.url}
+                  <CardTitle>Scan Results</CardTitle>
+                  <CardDescription>
+                    Analysis completed {new Date(scanResult.timestamp).toLocaleString()}
+                  </CardDescription>
+                </div>
+                <ThreatBadge score={scanResult.score} size="lg" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Alert based on threat level */}
+              <Alert variant={alertStyles.variant as any}>
+                <div className="flex items-center gap-2">
+                  {alertStyles.icon}
+                  <AlertTitle>{alertStyles.title}</AlertTitle>
+                </div>
+                <AlertDescription>{alertStyles.description}</AlertDescription>
+              </Alert>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* URL Information */}
+                <div className="md:col-span-2 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-medium">Scanned URL</h3>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <div className="truncate font-mono text-sm bg-secondary px-2 py-1 rounded">
+                        {scanResult.url}
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-6 w-6">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
-                    <Button size="icon" variant="ghost" className="h-6 w-6">
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Button>
+                  </div>
+                  
+                  {/* Detailed Findings */}
+                  <div>
+                    <h3 className="text-lg font-medium">Findings</h3>
+                    <ul className="mt-2 space-y-2">
+                      {scanResult.details.map((detail, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <div className={`mt-0.5 h-2 w-2 rounded-full flex-shrink-0 ${
+                            threatLevel === 'low' ? 'bg-threat-low' :
+                            threatLevel === 'medium' ? 'bg-threat-medium' :
+                            threatLevel === 'high' ? 'bg-threat-high' :
+                            'bg-threat-critical'
+                          }`} />
+                          <span>{detail}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
                 
-                {/* Detailed Findings */}
-                <div>
-                  <h3 className="text-lg font-medium">Findings</h3>
-                  <ul className="mt-2 space-y-2">
-                    {scanResult.details.map((detail, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <div className={`mt-0.5 h-2 w-2 rounded-full flex-shrink-0 ${
-                          threatLevel === 'low' ? 'bg-threat-low' :
-                          threatLevel === 'medium' ? 'bg-threat-medium' :
-                          threatLevel === 'high' ? 'bg-threat-high' :
-                          'bg-threat-critical'
-                        }`} />
-                        <span>{detail}</span>
-                      </li>
-                    ))}
-                  </ul>
+                {/* Threat Score Visualization */}
+                <div className="flex flex-col items-center justify-center border rounded-lg p-6">
+                  <h3 className="text-lg font-medium mb-2">Threat Score</h3>
+                  <ThreatScoreGauge score={scanResult.score} size="lg" />
+                  <p className="text-sm text-muted-foreground mt-4 text-center">
+                    {scanResult.score < 30 ? 
+                      "This URL appears to be safe." : 
+                      scanResult.score < 60 ?
+                      "Exercise caution when visiting this URL." :
+                      "This URL is potentially dangerous and should be avoided."
+                    }
+                  </p>
                 </div>
               </div>
-              
-              {/* Threat Score Visualization */}
-              <div className="flex flex-col items-center justify-center border rounded-lg p-6">
-                <h3 className="text-lg font-medium mb-2">Threat Score</h3>
-                <ThreatScoreGauge score={scanResult.score} size="lg" />
-                <p className="text-sm text-muted-foreground mt-4 text-center">
-                  {scanResult.score < 30 ? 
-                    "This URL appears to be safe." : 
-                    scanResult.score < 60 ?
-                    "Exercise caution when visiting this URL." :
-                    "This URL is potentially dangerous and should be avoided."
-                  }
-                </p>
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => {
-              setUrl('');
-              setScanComplete(false);
-              setScanResult(null);
-            }}>
-              Scan Another URL
-            </Button>
-            <Button className="bg-ghost-400 hover:bg-ghost-500">
-              Save Report
-            </Button>
-          </CardFooter>
-        </Card>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => {
+                setUrl('');
+                setScanComplete(false);
+                setScanResult(null);
+                setAiInsights(null);
+              }}>
+                Scan Another URL
+              </Button>
+              <Button className="bg-ghost-400 hover:bg-ghost-500">
+                Save Report
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          {/* AI Insights Panel */}
+          <AIInsightsPanel 
+            threatAnalysis={aiInsights?.threatAnalysis || ''}
+            securityRecommendations={aiInsights?.securityRecommendations || []}
+            isLoading={aiLoading}
+            onFeedback={handleAiFeedback}
+          />
+        </div>
       )}
     </div>
   );
