@@ -5,7 +5,7 @@ export interface Threat {
   timestamp: string;
   score: number;
   category: 'phishing' | 'malware' | 'scam' | 'suspicious' | 'safe';
-  source: 'email' | 'browser' | 'api' | 'manual';
+  source: 'email' | 'browser' | 'api' | 'manual' | 'whatsapp';
   details: string;
   status: 'active' | 'mitigated' | 'investigating';
 }
@@ -37,3 +37,28 @@ export const getThreatColor = (level: 'critical' | 'high' | 'medium' | 'low'): s
   return colors[level] || colors.low;
 }
 
+// Get source display name
+export const getSourceDisplayName = (source: Threat['source']): string => {
+  const displayNames: Record<Threat['source'], string> = {
+    email: 'Email',
+    browser: 'Browser',
+    api: 'API',
+    manual: 'Manual',
+    whatsapp: 'WhatsApp'
+  };
+  
+  return displayNames[source] || source;
+}
+
+// Get source icon class
+export const getSourceIconClass = (source: Threat['source']): string => {
+  const iconClasses: Record<Threat['source'], string> = {
+    email: 'bg-blue-500',
+    browser: 'bg-green-500',
+    api: 'bg-purple-500',
+    manual: 'bg-gray-500',
+    whatsapp: 'bg-green-600'
+  };
+  
+  return iconClasses[source] || 'bg-gray-500';
+}

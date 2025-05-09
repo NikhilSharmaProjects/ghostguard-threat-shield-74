@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Scan from "./pages/Scan";
 import Threats from "./pages/Threats";
+import WhatsAppIntegration from "./pages/WhatsAppIntegration";
+import EmailIntegration from "./pages/EmailIntegration";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/scan" element={<Scan />} />
             <Route path="/threats" element={<Threats />} />
+            <Route path="/whatsapp" element={<WhatsAppIntegration />} />
+            <Route path="/email" element={<EmailIntegration />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
