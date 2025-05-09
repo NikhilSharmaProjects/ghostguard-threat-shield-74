@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Search, AlertTriangle, Shield, ShieldAlert, ExternalLink } from 'lucide-react';
 import ThreatScoreGauge from '@/components/ThreatScoreGauge';
-import { ThreatBadge } from '@/components/ThreatBadge';
+import ThreatBadge from '@/components/ThreatBadge';
 import { getThreatLevel } from '@/lib/models';
 import ShieldAnimation from '@/components/ShieldAnimation';
 
