@@ -2,9 +2,11 @@
 import OpenAI from 'openai';
 
 // Initialize the OpenAI client with NVIDIA API credentials
+// Using dangerouslyAllowBrowser flag to enable browser usage
 const openai = new OpenAI({
   apiKey: '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',
   baseURL: 'https://integrate.api.nvidia.com/v1',
+  dangerouslyAllowBrowser: true, // Enable browser usage (note: this is not recommended for production)
 });
 
 interface AIAnalysisRequest {
