@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,24 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				ghost: {
+					100: '#f5f1fc',
+					200: '#e2d8f3',
+					300: '#c7b5e8',
+					400: '#9b87f5', // Primary
+					500: '#7c63e4',
+					600: '#614ad9',
+					700: '#4d3bae',
+					800: '#342674',
+					900: '#22184d',
+				},
+				threat: {
+					low: '#4ade80',    // Green - Safe
+					medium: '#facc15', // Yellow - Warning
+					high: '#f97316',   // Orange - Suspicious
+					critical: '#ef4444', // Red - Dangerous
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +102,21 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-shield': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.7' },
+				},
+				'scan-line': {
+					'0%': { transform: 'translateY(0%)' },
+					'100%': { transform: 'translateY(100%)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-shield': 'pulse-shield 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+				'scan-line': 'scan-line 1.5s ease-in-out infinite',
 			}
 		}
 	},
